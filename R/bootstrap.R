@@ -1,6 +1,16 @@
 #' @include utils.R
 NULL
 
+shinyOutputTag <- function(tag, ouptutId, outputType) {
+  tags$attribs$id <- ouptutId
+  tags$attribs[["data-shiny-output-type"]] <- outputType
+  if (isTRUE(getOption("shiny.strict_outputs", FALSE))) {
+    tags$attribs[["data-shiny-output-cap"]] <- "__SHINY_OUTPUT_CAPABILITIES_PLACEHOLDER__"
+  }
+
+  tag
+}
+
 #' Create a Bootstrap page
 #'
 #' Create a Shiny UI page that loads the CSS and JavaScript for
@@ -32,13 +42,12 @@ NULL
 #' @seealso [fluidPage()], [fixedPage()]
 #' @export
 bootstrapPage <- function(..., title = NULL, theme = NULL, lang = NULL) {
-
   args <- list(
     jqueryDependency(),
     if (!is.null(title)) tags$head(tags$title(title)),
     if (is.character(theme)) {
       if (length(theme) > 1) stop("`theme` must point to a single CSS file, not multiple files.")
-      tags$head(tags$link(rel="stylesheet", type="text/css", href=theme))
+      tags$head(tags$link(rel = "stylesheet", type = "text/css", href = theme))
     },
     # remainder of tags passed to the function
     list2(...)
@@ -109,13 +118,12 @@ bootstrapLib <- function(theme = NULL) {
     # option is automatically reset when the app (or session) exits
     if (isRunning()) {
       registerThemeDependency(bs_theme_deps)
-
     } else {
       # Technically, this a potential issue (someone trying to execute/render
       # bootstrapLib outside of a Shiny app), but it seems that, in that case,
       # you likely have other problems, since sliderInput() et al. already assume
       # that Shiny is the one doing the rendering
-      #warning(
+      # warning(
       #  "It appears `shiny::bootstrapLib()` was rendered outside of an Shiny ",
       #  "application context, likely by calling `as.tags()`, `as.character()`, ",
       #  "or `print()` directly on `bootstrapLib()` or UI components that may ",
@@ -124,7 +132,7 @@ bootstrapLib <- function(theme = NULL) {
       #  "themselves based on the Bootstrap theme, make sure `bootstrapLib()` is ",
       #  "provided directly to the UI and that the UI is provided direction to ",
       #  "`shinyApp()` (or `runApp()`)", call. = FALSE
-      #)
+      # )
     }
 
     bslib::bs_theme_dependencies(theme)
@@ -191,10 +199,12 @@ setCurrentTheme <- function(theme) {
 registerThemeDependency <- function(func) {
   func_expr <- substitute(func)
   if (is.call(func_expr) && identical(func_expr[[1]], as.symbol("function"))) {
-    warning("`func` should not be an anonymous function. ",
+    warning(
+      "`func` should not be an anonymous function. ",
       "It should be declared outside of the function that calls registerThemeDependency(); ",
       "otherwise it will not be deduplicated by Shiny and multiple copies of the ",
-      "resulting htmlDependency may be computed and sent to the client.")
+      "resulting htmlDependency may be computed and sent to the client."
+    )
   }
   if (!is.function(func) || length(formals(func)) != 1) {
     stop("`func` must be a function with one argument (the current theme)")
@@ -239,7 +249,7 @@ bootstrapVersion <- "3.4.1"
 #' @rdname bootstrapPage
 #' @export
 basicPage <- function(...) {
-  bootstrapPage(div(class="container-fluid", list(...)))
+  bootstrapPage(div(class = "container-fluid", list(...)))
 }
 
 
@@ -294,15 +304,18 @@ basicPage <- function(...) {
 #'
 #' @examples
 #' fillPage(
-#'   tags$style(type = "text/css",
+#'   tags$style(
+#'     type = "text/css",
 #'     ".half-fill { width: 50%; height: 100%; }",
 #'     "#one { float: left; background-color: #ddddff; }",
 #'     "#two { float: right; background-color: #ccffcc; }"
 #'   ),
-#'   div(id = "one", class = "half-fill",
+#'   div(
+#'     id = "one", class = "half-fill",
 #'     "Left half"
 #'   ),
-#'   div(id = "two", class = "half-fill",
+#'   div(
+#'     id = "two", class = "half-fill",
 #'     "Right half"
 #'   ),
 #'   padding = 10
@@ -315,10 +328,11 @@ basicPage <- function(...) {
 #'   )
 #' )
 #' @export
-fillPage <- function(..., padding = 0, title = NULL, bootstrap = TRUE,
-  theme = NULL, lang = NULL) {
-
-  fillCSS <- tags$head(tags$style(type = "text/css",
+fillPage <- function(
+    ..., padding = 0, title = NULL, bootstrap = TRUE,
+    theme = NULL, lang = NULL) {
+  fillCSS <- tags$head(tags$style(
+    type = "text/css",
     "html, body { width: 100%; height: 100%; overflow: hidden; }",
     sprintf("body { padding: %s; margin: 0; }", collapseSizes(padding))
   ))
@@ -341,7 +355,8 @@ fillPage <- function(..., padding = 0, title = NULL, bootstrap = TRUE,
 collapseSizes <- function(padding) {
   paste(
     sapply(padding, shiny::validateCssUnit, USE.NAMES = FALSE),
-    collapse = " ")
+    collapse = " "
+  )
 }
 
 #' Create a page with a top level navigation bar
@@ -398,15 +413,18 @@ collapseSizes <- function(padding) {
 #' @family layout functions
 #'
 #' @examples
-#' navbarPage("App Title",
+#' navbarPage(
+#'   "App Title",
 #'   tabPanel("Plot"),
 #'   tabPanel("Summary"),
 #'   tabPanel("Table")
 #' )
 #'
-#' navbarPage("App Title",
+#' navbarPage(
+#'   "App Title",
 #'   tabPanel("Plot"),
-#'   navbarMenu("More",
+#'   navbarMenu(
+#'     "More",
 #'     tabPanel("Summary"),
 #'     "----",
 #'     "Section header",
@@ -428,7 +446,8 @@ navbarPage <- function(title,
                        windowTitle = NA,
                        lang = NULL) {
   remove_first_class(bslib::page_navbar(
-    ..., title = title, id = id, selected = selected,
+    ...,
+    title = title, id = id, selected = selected,
     position = match.arg(position),
     header = header, footer = footer,
     inverse = inverse, collapsible = collapsible,
@@ -458,7 +477,7 @@ navbarMenu <- function(title, ..., menuName = title, icon = NULL) {
 #' @return The newly created panel.
 #' @export
 wellPanel <- function(...) {
-  div(class="well", ...)
+  div(class = "well", ...)
 }
 
 #' Conditional Panel
@@ -489,7 +508,8 @@ wellPanel <- function(...) {
 #' if (interactive()) {
 #'   ui <- fluidPage(
 #'     sidebarPanel(
-#'       selectInput("plotType", "Plot Type",
+#'       selectInput(
+#'         "plotType", "Plot Type",
 #'         c(Scatter = "scatter", Histogram = "hist")
 #'       ),
 #'       # Only show this panel if the plot type is a histogram
@@ -550,12 +570,14 @@ conditionalPanel <- function(condition, ..., ns = NS(NULL)) {
 #' @return A help text element that can be added to a UI definition.
 #'
 #' @examples
-#' helpText("Note: while the data view will show only",
-#'          "the specified number of observations, the",
-#'          "summary will be based on the full dataset.")
+#' helpText(
+#'   "Note: while the data view will show only",
+#'   "the specified number of observations, the",
+#'   "summary will be based on the full dataset."
+#' )
 #' @export
 helpText <- function(...) {
-  span(class="help-block", ...)
+  span(class = "help-block", ...)
 }
 
 
@@ -668,9 +690,7 @@ tabsetPanel <- function(...,
                         type = c("tabs", "pills", "hidden"),
                         header = NULL,
                         footer = NULL) {
-
-  func <- switch(
-    match.arg(type),
+  func <- switch(match.arg(type),
     tabs = bslib::navs_tab,
     pills = bslib::navs_pill,
     hidden = bslib::navs_hidden
@@ -716,9 +736,7 @@ tabsetPanel <- function(...,
 #'
 #' @examples
 #' fluidPage(
-#'
 #'   titlePanel("Application Title"),
-#'
 #'   navlistPanel(
 #'     "Header",
 #'     tabPanel("First"),
@@ -736,7 +754,8 @@ navlistPanel <- function(...,
                          fluid = TRUE,
                          widths = c(4, 8)) {
   remove_first_class(bslib::navs_pill_list(
-    ..., id = id, selected = selected,
+    ...,
+    id = id, selected = selected,
     header = header, footer = footer,
     well = well, fluid = fluid, widths = widths
   ))
@@ -771,8 +790,12 @@ remove_first_class <- function(x) {
 #'       verbatimTextOutput("verb")
 #'     ),
 #'     server = function(input, output) {
-#'       output$text <- renderText({ input$txt })
-#'       output$verb <- renderText({ input$txt })
+#'       output$text <- renderText({
+#'         input$txt
+#'       })
+#'       output$verb <- renderText({
+#'         input$txt
+#'       })
 #'     }
 #'   )
 #' }
@@ -787,7 +810,8 @@ textOutput <- function(outputId, container = if (inline) span else div, inline =
 #' @export
 #' @rdname textOutput
 verbatimTextOutput <- function(outputId, placeholder = FALSE) {
-  pre(id = outputId,
+  pre(
+    id = outputId,
     class = "shiny-text-output",
     class = if (!placeholder) "noplaceholder"
   )
@@ -797,10 +821,9 @@ verbatimTextOutput <- function(outputId, placeholder = FALSE) {
 #' @name plotOutput
 #' @rdname plotOutput
 #' @export
-imageOutput <- function(outputId, width = "100%", height="400px",
+imageOutput <- function(outputId, width = "100%", height = "400px",
                         click = NULL, dblclick = NULL, hover = NULL, brush = NULL,
                         inline = FALSE, fill = FALSE) {
-
   style <- if (!inline) {
     # Using `css()` here instead of paste/sprintf so that NULL values will
     # result in the property being dropped altogether
@@ -941,169 +964,178 @@ imageOutput <- function(outputId, width = "100%", height="400px",
 #' @examples
 #' # Only run these examples in interactive R sessions
 #' if (interactive()) {
-#'
-#' # A basic shiny app with a plotOutput
-#' shinyApp(
-#'   ui = fluidPage(
-#'     sidebarLayout(
-#'       sidebarPanel(
-#'         actionButton("newplot", "New plot")
-#'       ),
-#'       mainPanel(
-#'         plotOutput("plot")
-#'       )
-#'     )
-#'   ),
-#'   server = function(input, output) {
-#'     output$plot <- renderPlot({
-#'       input$newplot
-#'       # Add a little noise to the cars data
-#'       cars2 <- cars + rnorm(nrow(cars))
-#'       plot(cars2)
-#'     })
-#'   }
-#' )
-#'
-#'
-#' # A demonstration of clicking, hovering, and brushing
-#' shinyApp(
-#'   ui = basicPage(
-#'     fluidRow(
-#'       column(width = 4,
-#'         plotOutput("plot", height=300,
-#'           click = "plot_click",  # Equiv, to click=clickOpts(id="plot_click")
-#'           hover = hoverOpts(id = "plot_hover", delayType = "throttle"),
-#'           brush = brushOpts(id = "plot_brush")
+#'   # A basic shiny app with a plotOutput
+#'   shinyApp(
+#'     ui = fluidPage(
+#'       sidebarLayout(
+#'         sidebarPanel(
+#'           actionButton("newplot", "New plot")
 #'         ),
-#'         h4("Clicked points"),
-#'         tableOutput("plot_clickedpoints"),
-#'         h4("Brushed points"),
-#'         tableOutput("plot_brushedpoints")
-#'       ),
-#'       column(width = 4,
-#'         verbatimTextOutput("plot_clickinfo"),
-#'         verbatimTextOutput("plot_hoverinfo")
-#'       ),
-#'       column(width = 4,
-#'         wellPanel(actionButton("newplot", "New plot")),
-#'         verbatimTextOutput("plot_brushinfo")
-#'       )
-#'     )
-#'   ),
-#'   server = function(input, output, session) {
-#'     data <- reactive({
-#'       input$newplot
-#'       # Add a little noise to the cars data so the points move
-#'       cars + rnorm(nrow(cars))
-#'     })
-#'     output$plot <- renderPlot({
-#'       d <- data()
-#'       plot(d$speed, d$dist)
-#'     })
-#'     output$plot_clickinfo <- renderPrint({
-#'       cat("Click:\n")
-#'       str(input$plot_click)
-#'     })
-#'     output$plot_hoverinfo <- renderPrint({
-#'       cat("Hover (throttled):\n")
-#'       str(input$plot_hover)
-#'     })
-#'     output$plot_brushinfo <- renderPrint({
-#'       cat("Brush (debounced):\n")
-#'       str(input$plot_brush)
-#'     })
-#'     output$plot_clickedpoints <- renderTable({
-#'       # For base graphics, we need to specify columns, though for ggplot2,
-#'       # it's usually not necessary.
-#'       res <- nearPoints(data(), input$plot_click, "speed", "dist")
-#'       if (nrow(res) == 0)
-#'         return()
-#'       res
-#'     })
-#'     output$plot_brushedpoints <- renderTable({
-#'       res <- brushedPoints(data(), input$plot_brush, "speed", "dist")
-#'       if (nrow(res) == 0)
-#'         return()
-#'       res
-#'     })
-#'   }
-#' )
-#'
-#'
-#' # Demo of clicking, hovering, brushing with imageOutput
-#' # Note that coordinates are in pixels
-#' shinyApp(
-#'   ui = basicPage(
-#'     fluidRow(
-#'       column(width = 4,
-#'         imageOutput("image", height=300,
-#'           click = "image_click",
-#'           hover = hoverOpts(
-#'             id = "image_hover",
-#'             delay = 500,
-#'             delayType = "throttle"
-#'           ),
-#'           brush = brushOpts(id = "image_brush")
+#'         mainPanel(
+#'           plotOutput("plot")
 #'         )
-#'       ),
-#'       column(width = 4,
-#'         verbatimTextOutput("image_clickinfo"),
-#'         verbatimTextOutput("image_hoverinfo")
-#'       ),
-#'       column(width = 4,
-#'         wellPanel(actionButton("newimage", "New image")),
-#'         verbatimTextOutput("image_brushinfo")
 #'       )
-#'     )
-#'   ),
-#'   server = function(input, output, session) {
-#'     output$image <- renderImage({
-#'       input$newimage
+#'     ),
+#'     server = function(input, output) {
+#'       output$plot <- renderPlot({
+#'         input$newplot
+#'         # Add a little noise to the cars data
+#'         cars2 <- cars + rnorm(nrow(cars))
+#'         plot(cars2)
+#'       })
+#'     }
+#'   )
 #'
-#'       # Get width and height of image output
-#'       width  <- session$clientData$output_image_width
-#'       height <- session$clientData$output_image_height
 #'
-#'       # Write to a temporary PNG file
-#'       outfile <- tempfile(fileext = ".png")
-#'
-#'       png(outfile, width=width, height=height)
-#'       plot(rnorm(200), rnorm(200))
-#'       dev.off()
-#'
-#'       # Return a list containing information about the image
-#'       list(
-#'         src = outfile,
-#'         contentType = "image/png",
-#'         width = width,
-#'         height = height,
-#'         alt = "This is alternate text"
+#'   # A demonstration of clicking, hovering, and brushing
+#'   shinyApp(
+#'     ui = basicPage(
+#'       fluidRow(
+#'         column(
+#'           width = 4,
+#'           plotOutput("plot",
+#'             height = 300,
+#'             click = "plot_click", # Equiv, to click=clickOpts(id="plot_click")
+#'             hover = hoverOpts(id = "plot_hover", delayType = "throttle"),
+#'             brush = brushOpts(id = "plot_brush")
+#'           ),
+#'           h4("Clicked points"),
+#'           tableOutput("plot_clickedpoints"),
+#'           h4("Brushed points"),
+#'           tableOutput("plot_brushedpoints")
+#'         ),
+#'         column(
+#'           width = 4,
+#'           verbatimTextOutput("plot_clickinfo"),
+#'           verbatimTextOutput("plot_hoverinfo")
+#'         ),
+#'         column(
+#'           width = 4,
+#'           wellPanel(actionButton("newplot", "New plot")),
+#'           verbatimTextOutput("plot_brushinfo")
+#'         )
 #'       )
-#'     })
-#'     output$image_clickinfo <- renderPrint({
-#'       cat("Click:\n")
-#'       str(input$image_click)
-#'     })
-#'     output$image_hoverinfo <- renderPrint({
-#'       cat("Hover (throttled):\n")
-#'       str(input$image_hover)
-#'     })
-#'     output$image_brushinfo <- renderPrint({
-#'       cat("Brush (debounced):\n")
-#'       str(input$image_brush)
-#'     })
-#'   }
-#' )
+#'     ),
+#'     server = function(input, output, session) {
+#'       data <- reactive({
+#'         input$newplot
+#'         # Add a little noise to the cars data so the points move
+#'         cars + rnorm(nrow(cars))
+#'       })
+#'       output$plot <- renderPlot({
+#'         d <- data()
+#'         plot(d$speed, d$dist)
+#'       })
+#'       output$plot_clickinfo <- renderPrint({
+#'         cat("Click:\n")
+#'         str(input$plot_click)
+#'       })
+#'       output$plot_hoverinfo <- renderPrint({
+#'         cat("Hover (throttled):\n")
+#'         str(input$plot_hover)
+#'       })
+#'       output$plot_brushinfo <- renderPrint({
+#'         cat("Brush (debounced):\n")
+#'         str(input$plot_brush)
+#'       })
+#'       output$plot_clickedpoints <- renderTable({
+#'         # For base graphics, we need to specify columns, though for ggplot2,
+#'         # it's usually not necessary.
+#'         res <- nearPoints(data(), input$plot_click, "speed", "dist")
+#'         if (nrow(res) == 0) {
+#'           return()
+#'         }
+#'         res
+#'       })
+#'       output$plot_brushedpoints <- renderTable({
+#'         res <- brushedPoints(data(), input$plot_brush, "speed", "dist")
+#'         if (nrow(res) == 0) {
+#'           return()
+#'         }
+#'         res
+#'       })
+#'     }
+#'   )
 #'
+#'
+#'   # Demo of clicking, hovering, brushing with imageOutput
+#'   # Note that coordinates are in pixels
+#'   shinyApp(
+#'     ui = basicPage(
+#'       fluidRow(
+#'         column(
+#'           width = 4,
+#'           imageOutput("image",
+#'             height = 300,
+#'             click = "image_click",
+#'             hover = hoverOpts(
+#'               id = "image_hover",
+#'               delay = 500,
+#'               delayType = "throttle"
+#'             ),
+#'             brush = brushOpts(id = "image_brush")
+#'           )
+#'         ),
+#'         column(
+#'           width = 4,
+#'           verbatimTextOutput("image_clickinfo"),
+#'           verbatimTextOutput("image_hoverinfo")
+#'         ),
+#'         column(
+#'           width = 4,
+#'           wellPanel(actionButton("newimage", "New image")),
+#'           verbatimTextOutput("image_brushinfo")
+#'         )
+#'       )
+#'     ),
+#'     server = function(input, output, session) {
+#'       output$image <- renderImage({
+#'         input$newimage
+#'
+#'         # Get width and height of image output
+#'         width <- session$clientData$output_image_width
+#'         height <- session$clientData$output_image_height
+#'
+#'         # Write to a temporary PNG file
+#'         outfile <- tempfile(fileext = ".png")
+#'
+#'         png(outfile, width = width, height = height)
+#'         plot(rnorm(200), rnorm(200))
+#'         dev.off()
+#'
+#'         # Return a list containing information about the image
+#'         list(
+#'           src = outfile,
+#'           contentType = "image/png",
+#'           width = width,
+#'           height = height,
+#'           alt = "This is alternate text"
+#'         )
+#'       })
+#'       output$image_clickinfo <- renderPrint({
+#'         cat("Click:\n")
+#'         str(input$image_click)
+#'       })
+#'       output$image_hoverinfo <- renderPrint({
+#'         cat("Hover (throttled):\n")
+#'         str(input$image_hover)
+#'       })
+#'       output$image_brushinfo <- renderPrint({
+#'         cat("Brush (debounced):\n")
+#'         str(input$image_brush)
+#'       })
+#'     }
+#'   )
 #' }
 #' @export
-plotOutput <- function(outputId, width = "100%", height="400px",
+plotOutput <- function(outputId, width = "100%", height = "400px",
                        click = NULL, dblclick = NULL, hover = NULL, brush = NULL,
                        inline = FALSE, fill = !inline) {
-
   # Result is the same as imageOutput, except for HTML class
-  res <- imageOutput(outputId, width, height, click, dblclick,
-                     hover, brush, inline, fill)
+  res <- imageOutput(
+    outputId, width, height, click, dblclick,
+    hover, brush, inline, fill
+  )
 
   res$attribs$class <- "shiny-plot-output"
   res
@@ -1113,7 +1145,7 @@ plotOutput <- function(outputId, width = "100%", height="400px",
 #' @rdname renderTable
 #' @export
 tableOutput <- function(outputId) {
-  div(id = outputId, class="shiny-html-output shiny-table-output")
+  div(id = outputId, class = "shiny-html-output shiny-table-output")
 }
 
 dataTableDependency <- list(
@@ -1208,15 +1240,16 @@ useLegacyDataTable <- function(from, to) {
 #'   htmlOutput("summary", container = tags$li, class = "custom-li-output")
 #' )
 #' @export
-htmlOutput <- function(outputId, inline = FALSE,
-  container = if (inline) span else div, fill = FALSE, ...)
-{
+htmlOutput <- function(
+    outputId, inline = FALSE,
+    container = if (inline) span else div, fill = FALSE, ...) {
   if (any_unnamed(list(...))) {
     warning("Unnamed elements in ... will be replaced with dynamic UI.")
   }
   res <- container(id = outputId, class = "shiny-html-output", ...)
   bindFillRole(
-    res, item = isTRUE(fill) || isTRUE("item" == fill),
+    res,
+    item = isTRUE(fill) || isTRUE("item" == fill),
     container = isTRUE(fill) || isTRUE("container" == fill)
   )
 }
@@ -1282,8 +1315,8 @@ uiOutput <- htmlOutput
 #' @seealso [downloadHandler()]
 #' @export
 downloadButton <- function(outputId,
-                           label="Download",
-                           class=NULL,
+                           label = "Download",
+                           class = NULL,
                            ...,
                            icon = shiny::icon("download"),
                            enabled = "auto") {
@@ -1297,18 +1330,24 @@ downloadButton <- function(outputId,
       "{.arg enabled} must be {.val TRUE}, {.val FALSE}, or {.val \"auto\"}, not {.obj_type_friendly {enabled}}."
     )
   }
-  tags$a(id=outputId,
-         class="btn btn-default shiny-download-link",
-         class=if (!enabled) "disabled",
-         class=class,
-         href='',
-         target='_blank',
-         download=NA,
-         "aria-disabled"=if (!enabled) "true",
-         "data-shiny-disable-auto-enable"=if (!auto_enable) NA,
-         tabindex=if (!enabled) "-1",
-         validateIcon(icon),
-         label, ...)
+  shinyOutputTag(
+    tags$a(
+      id = outputId,
+      class = "btn btn-default shiny-download-link",
+      class = if (!enabled) "disabled",
+      class = class,
+      href = "",
+      target = "_blank",
+      download = NA,
+      "aria-disabled" = if (!enabled) "true",
+      "data-shiny-disable-auto-enable" = if (!auto_enable) NA,
+      tabindex = if (!enabled) "-1",
+      validateIcon(icon),
+      label, ...
+    ),
+    ouptutId = outputId,
+    outputType = "download"
+  )
 }
 
 #' @rdname downloadButton
@@ -1325,17 +1364,19 @@ downloadLink <- function(outputId, label = "Download", class = NULL, ...,
       "{.arg enabled} must be {.val TRUE}, {.val FALSE}, or {.val \"auto\"}, not {.obj_type_friendly {enabled}}."
     )
   }
-  tags$a(id = outputId,
-         class = "shiny-download-link",
-         class = if (!enabled) "disabled",
-         class = class,
-         href = '',
-         target = '_blank',
-         download = NA,
-         "aria-disabled" = if (!enabled) "true",
-         "data-shiny-disable-auto-enable" = if (!auto_enable) NA,
-         tabindex = if (!enabled) "-1",
-         label, ...)
+  tags$a(
+    id = outputId,
+    class = "shiny-download-link",
+    class = if (!enabled) "disabled",
+    class = class,
+    href = "",
+    target = "_blank",
+    download = NA,
+    "aria-disabled" = if (!enabled) "true",
+    "data-shiny-disable-auto-enable" = if (!auto_enable) NA,
+    tabindex = if (!enabled) "-1",
+    label, ...
+  )
 }
 
 
@@ -1368,25 +1409,25 @@ downloadLink <- function(outputId, label = "Download", class = NULL, ...,
 #' # add an icon to a submit button
 #' submitButton("Update View", icon = icon("redo"))
 #'
-#' navbarPage("App Title",
+#' navbarPage(
+#'   "App Title",
 #'   tabPanel("Plot", icon = icon("bar-chart-o")),
 #'   tabPanel("Summary", icon = icon("list-alt")),
 #'   tabPanel("Table", icon = icon("table"))
 #' )
 #' @export
 icon <- function(name, class = NULL, lib = "font-awesome", ...) {
-
   # A NULL name allows for a generic <i> not tied to any library
   if (is.null(name)) {
     lib <- "none"
   }
 
-  switch(
-    lib %||% "",
+  switch(lib %||% "",
     "none" = iconTag(name, class = class, ...),
     "font-awesome" = fontawesome::fa_i(name = name, class = class, ...),
     "glyphicon" = iconTag(
-      name, class = "glyphicon", class = paste0("glyphicon-", name),
+      name,
+      class = "glyphicon", class = paste0("glyphicon-", name),
       class = class, ...
     ),
     stop("Unknown icon library: ", lib, ". See `?icon` for supported libraries.")

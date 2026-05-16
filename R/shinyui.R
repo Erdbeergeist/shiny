@@ -21,25 +21,27 @@ withMathJax <- function(...) {
   )
   tagList(
     tags$head(
-      singleton(tags$script(src = path, type = 'text/javascript'))
+      singleton(tags$script(src = path, type = "text/javascript"))
     ),
     ...,
     tags$script(HTML('if (window.MathJax) MathJax.Hub.Queue(["Typeset", MathJax.Hub]);'))
   )
 }
 
-renderPage <- function(ui, showcase=0, testMode=FALSE) {
+renderPage <- function(ui, showcase = 0, testMode = FALSE) {
   lang <- getLang(ui)
 
   # If the ui is a NOT complete document (created by htmlTemplate()), then do some
   # preprocessing and make sure it's a complete document.
   if (!inherits(ui, "html_document")) {
-    if (showcase > 0)
+    if (showcase > 0) {
       ui <- showcaseUI(ui)
+    }
 
     # Wrap ui in body tag if it doesn't already have a single top-level body tag.
-    if (!(inherits(ui, "shiny.tag") && ui$name == "body"))
+    if (!(inherits(ui, "shiny.tag") && ui$name == "body")) {
       ui <- tags$body(ui)
+    }
 
     # Put the body into the default template
     ui <- htmlTemplate(
@@ -78,7 +80,19 @@ renderPage <- function(ui, showcase=0, testMode=FALSE) {
         get_package_version("shiny"),
         src = "www/shared",
         package = "shiny",
-        head="<script>window.__SHINY_DEV_MODE__ = true;</script>",
+        head = "<script>window.__SHINY_DEV_MODE__ = true;</script>",
+        all_files = FALSE
+      )
+  }
+
+  if (isTRUE(getOption("shiny.strict_outputs", FALSE))) {
+    shiny_deps[[length(shiny_deps) + 1]] <-
+      htmlDependency(
+        "shiny-strict-outputs",
+        get_package_version("shiny"),
+        src = "www/shared",
+        package = "shiny",
+        head = "<script>window.__SHINY_STRICT_OUTPUTS__ = true;</script>",
         all_files = FALSE
       )
   }
@@ -126,10 +140,11 @@ shinyDependencies <- function() {
             "shiny.minified",
             TRUE
           )
-        ))
+        )) {
           "shiny.min.js"
-        else
-          "shiny.js",
+        } else {
+          "shiny.js"
+        },
       all_files = FALSE
     )
   )
@@ -199,7 +214,6 @@ shinyUI <- function(ui) {
 }
 
 uiHttpHandler <- function(ui, uiPattern = "^/$") {
-
   force(ui)
 
   allowed_methods <- "GET"
@@ -208,17 +222,20 @@ uiHttpHandler <- function(ui, uiPattern = "^/$") {
   }
 
   function(req) {
-    if (!isTRUE(req$REQUEST_METHOD %in% allowed_methods))
+    if (!isTRUE(req$REQUEST_METHOD %in% allowed_methods)) {
       return(NULL)
+    }
 
-    if (!isTRUE(grepl(uiPattern, req$PATH_INFO)))
+    if (!isTRUE(grepl(uiPattern, req$PATH_INFO))) {
       return(NULL)
+    }
 
     showcaseMode <- .globals$showcaseDefault
     if (.globals$showcaseOverride) {
       mode <- showcaseModeOfReq(req)
-      if (!is.null(mode))
+      if (!is.null(mode)) {
         showcaseMode <- mode
+      }
     }
 
     testMode <- getShinyOption("testmode", default = FALSE)
@@ -250,14 +267,15 @@ uiHttpHandler <- function(ui, uiPattern = "^/$") {
         uiValue <- ui
       }
     })
-    if (is.null(uiValue))
+    if (is.null(uiValue)) {
       return(NULL)
+    }
 
     if (inherits(uiValue, "httpResponse")) {
       return(uiValue)
     } else {
       html <- renderPage(uiValue, showcaseMode, testMode)
-      return(httpResponse(200, content=html))
+      return(httpResponse(200, content = html))
     }
   }
 }

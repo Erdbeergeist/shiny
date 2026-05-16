@@ -5816,6 +5816,13 @@ ${duplicateIdMsg}`;
       for (let j2 = 0; j2 < matches.length; j2++) {
         const el = matches[j2];
         const id = binding.getId(el);
+        const cap = el.getAttribute("data-shiny-output-cap");
+        const strictOutputs = Boolean(window.__SHINY_STRICT_OUTPUTS__);
+        if (strictOutputs && !cap) {
+          console.warn(
+            `[shiny] Refusing to bind output '${id}': missing output capability`
+          );
+        }
         if (!id) continue;
         if (!import_jquery35.default.contains(document.documentElement, el)) continue;
         const $el = (0, import_jquery35.default)(el);

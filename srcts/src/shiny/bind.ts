@@ -332,6 +332,16 @@ async function bindOutputs(
       const el = matches[j];
       const id = binding.getId(el);
 
+      const cap = el.getAttribute("data-shiny-output-cap");
+
+      // Check if the required capability is present
+      const strictOutputs = Boolean((window as any).__SHINY_STRICT_OUTPUTS__);
+      if (strictOutputs && !cap) {
+        console.warn(
+          `[shiny] Refusing to bind output '${id}': missing output capability`,
+        );
+      }
+
       // Check if ID is falsy
       if (!id) continue;
 
