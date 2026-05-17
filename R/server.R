@@ -100,14 +100,14 @@ shinyServer <- function(func) {
 
 decodeMessage <- function(data) {
   readInt <- function(pos) {
-    packBits(rawToBits(data[pos:(pos+3)]), type='integer')
+    packBits(rawToBits(data[pos:(pos + 3)]), type = "integer")
   }
 
   if (readInt(1) != 0x01020202L) {
     # Treat message as UTF-8
     charData <- rawToChar(data)
-    Encoding(charData) <- 'UTF-8'
-    return(safeFromJSON(charData, simplifyVector=FALSE))
+    Encoding(charData) <- "UTF-8"
+    return(safeFromJSON(charData, simplifyVector = FALSE))
   }
 
   i <- 5
@@ -115,10 +115,11 @@ decodeMessage <- function(data) {
   while (i <= length(data)) {
     length <- readInt(i)
     i <- i + 4
-    if (length != 0)
-      parts <- append(parts, list(data[i:(i+length-1)]))
-    else
+    if (length != 0) {
+      parts <- append(parts, list(data[i:(i + length - 1)]))
+    } else {
       parts <- append(parts, list(raw(0)))
+    }
     i <- i + length
   }
 
@@ -132,26 +133,83 @@ on_load({
   autoReloadCallbacks <- Callbacks$new()
 })
 
-createAppHandlers <- function(httpHandlers, serverFuncSource) {
+createAppHandlers <- function(httpHandlers, serverFuncSource,
+                              outputCapabilityPageContexts = NULL,
+                              pageContextKey = NULL) {
   appvars <- new.env()
   appvars$server <- NULL
-
-  sys.www.root <- system_file('www', package='shiny')
+  message("[strict-output] app handlers called")
+  sys.www.root <- system_file("www", package = "shiny")
 
   # This value, if non-NULL, must be present on all HTTP and WebSocket
   # requests as the Shiny-Shared-Secret header or else access will be
   # denied (403 response for HTTP, and instant close for websocket).
   checkSharedSecret <- loadSharedSecret()
 
+  outputCapabilityPageContexts <- fastmap::fastmap()
+
+  createOutputCapabilityPageContext <- function() {
+    list(
+      id = createUniqueId(32),
+      secret = createUniqueId(64),
+      created_at = Sys.time(),
+      used = FALSE
+    )
+  }
+
+  pageContextKey <- function(pageId) {
+    paste(getShinyOption("appToken"), pageId, sep = ":")
+  }
+
+  safeField <- function(x, name) {
+    val <- x[[name]]
+    if (is.null(val)) "<none>" else val
+  }
+
+  joinedHttpHandler <- joinHandlers(c(
+    sessionHandler,
+    httpHandlers,
+    sys.www.root,
+    resourcePathHandler,
+    reactLogHandler
+  ))
+  # NOTE this runs whenever we reload the page
   appHandlers <- list(
-    http = joinHandlers(c(
-      sessionHandler,
-      httpHandlers,
-      sys.www.root,
-      resourcePathHandler,
-      reactLogHandler
-    )),
+    http = function(req) {
+      message(
+        "[strict-output] HTTP handler called ",
+        "time=", format(Sys.time(), "%Y-%m-%d %H:%M:%OS3"),
+        " path=", safeField(req, "PATH_INFO")
+      )
+
+      if (
+        isTRUE(getOption("shiny.strict_outputs", FALSE)) &&
+          identical(req$REQUEST_METHOD, "GET") &&
+          identical(req$PATH_INFO, "/")
+      ) {
+        ctx <- createOutputCapabilityPageContext()
+        key <- pageContextKey(ctx$id)
+
+        outputCapabilityPageContexts$set(key, ctx)
+        req$.__shiny_output_capability_context__ <- ctx
+
+        message(
+          "[strict-output] HTTP created output capability page context ",
+          "page_id=", ctx$id,
+          " key=", key,
+          " time=", format(Sys.time(), "%Y-%m-%d %H:%M:%OS3"),
+          " path=", safeField(req, "PATH_INFO")
+        )
+      }
+
+      joinedHttpHandler(req)
+    },
     ws = function(ws) {
+      message(
+        "[strict-output] WS opened ",
+        "time=", format(Sys.time(), "%Y-%m-%d %H:%M:%OS3"),
+        " path=", safeField(ws$request, "PATH_INFO")
+      )
       if (!checkSharedSecret(ws$request$HTTP_SHINY_SHARED_SECRET)) {
         ws$close()
         return(TRUE)
@@ -188,19 +246,22 @@ createAppHandlers <- function(httpHandlers, serverFuncSource) {
       messageHandler <- function(binary, msg) {
         withReactiveDomain(shinysession, {
           # To ease transition from websockets-based code. Should remove once we're stable.
-          if (is.character(msg))
+          if (is.character(msg)) {
             msg <- charToRaw(msg)
-
-          traceOption <- getOption('shiny.trace', FALSE)
-          if (isTRUE(traceOption) || traceOption == "recv") {
-            if (binary)
-              message("RECV ", '$$binary data$$')
-            else
-              message("RECV ", rawToChar(msg))
           }
 
-          if (isEmptyMessage(msg))
+          traceOption <- getOption("shiny.trace", FALSE)
+          if (isTRUE(traceOption) || traceOption == "recv") {
+            if (binary) {
+              message("RECV ", "$$binary data$$")
+            } else {
+              message("RECV ", rawToChar(msg))
+            }
+          }
+
+          if (isEmptyMessage(msg)) {
             return()
+          }
 
           msg <- decodeMessage(msg)
 
@@ -223,15 +284,12 @@ createAppHandlers <- function(httpHandlers, serverFuncSource) {
 
           msg$data <- applyInputHandlers(msg$data)
 
-          switch(
-            msg$method,
+          switch(msg$method,
             init = {
-
               serverFunc <- withReactiveDomain(NULL, serverFuncSource())
               if (!identicalFunctionBodies(serverFunc, appvars$server)) {
                 appvars$server <- serverFunc
-                if (!is.null(appvars$server))
-                {
+                if (!is.null(appvars$server)) {
                   # Tag this function as the Shiny server function. A debugger may use this
                   # tag to give this function special treatment.
                   # It's very important that it's appvars$server itself and NOT a copy that
@@ -243,10 +301,11 @@ createAppHandlers <- function(httpHandlers, serverFuncSource) {
 
               # Check for switching into/out of showcase mode
               if (.globals$showcaseOverride &&
-                  exists(".clientdata_url_search", where = msg$data)) {
+                exists(".clientdata_url_search", where = msg$data)) {
                 mode <- showcaseModeOfQuerystring(msg$data$.clientdata_url_search)
-                if (!is.null(mode))
+                if (!is.null(mode)) {
                   shinysession$setShowcase(mode)
+                }
               }
 
               # In shinysession$createBookmarkObservers() above, observers may be
@@ -267,15 +326,44 @@ createAppHandlers <- function(httpHandlers, serverFuncSource) {
               # the initial page
               if (!is.null(msg$data$.clientdata_singletons)) {
                 shinysession$singletons <- strsplit(
-                  msg$data$.clientdata_singletons, ',')[[1]]
+                  msg$data$.clientdata_singletons, ","
+                )[[1]]
               }
+              if (isTRUE(getOption("shiny.strict_outputs", FALSE))) {
+                pageId <- msg$data$.clientdata_shiny_output_capability_page_id
+                ctx <- NULL
 
+                if (!is.null(pageId)) {
+                  ctx <- outputCapabilityPageContexts$get(pageContextKey(pageId))
+                }
+
+                message(
+                  "[strict-output] WS init ctx lookup ",
+                  "page_id=", if (is.null(pageId)) "<null>" else pageId,
+                  " key=", if (is.null(pageId)) "<null>" else pageContextKey(pageId),
+                  " found=", !is.null(ctx),
+                  " time=", format(Sys.time(), "%Y-%m-%d %H:%M:%OS3"),
+                  " ws_path=", safeField(ws$request, "PATH_INFO")
+                )
+
+                if (!is.null(ctx)) {
+                  message(
+                    "[strict-output] WS resolved same ctx ",
+                    "page_id=", ctx$id,
+                    " key=", pageContextKey(ctx$id)
+                  )
+
+                  # For this test only. Later this should attach to ShinySession.
+                  # shinysession$attachOutputCapabilityContext(ctx)
+
+                  outputCapabilityPageContexts$remove(pageContextKey(pageId))
+                }
+              }
               local({
                 args <- argsForServerFunc(serverFunc, shinysession)
 
                 withReactiveDomain(shinysession, {
                   otel_span_session_start(domain = shinysession, {
-
                     do.call(
                       # No corresponding ..stacktraceoff; the server func is pure
                       # user code
@@ -284,10 +372,8 @@ createAppHandlers <- function(httpHandlers, serverFuncSource) {
                       ),
                       args
                     )
-
                   })
                 })
-
               })
             },
             update = {
@@ -332,22 +418,25 @@ argsForServerFunc <- function(serverFunc, session) {
   # The clientData and session arguments are optional; check if
   # each exists
 
-  if ("clientData" %in% paramNames)
+  if ("clientData" %in% paramNames) {
     args$clientData <- session$clientData
+  }
 
-  if ("session" %in% paramNames)
+  if ("session" %in% paramNames) {
     args$session <- session
+  }
 
   args
 }
 
 getEffectiveBody <- function(func) {
-  if (is.null(func))
+  if (is.null(func)) {
     NULL
-  else if (isS4(func) && inherits(func, "functionWithTrace"))
+  } else if (isS4(func) && inherits(func, "functionWithTrace")) {
     body(func@original)
-  else
+  } else {
     body(func)
+  }
 }
 
 identicalFunctionBodies <- function(a, b) {
@@ -367,7 +456,8 @@ addSubApp <- function(appObj, autoRemove = TRUE) {
     substr(path, 2, nchar(path)),
     "/?w=", workerId(),
     "&__subapp__=1",
-    sep="")
+    sep = ""
+  )
   handlerManager$addHandler(routeHandler(path, appHandlers$http), finalPath)
   handlerManager$addWSHandler(routeWSHandler(path, appHandlers$ws), finalPath)
 
@@ -388,7 +478,10 @@ removeSubApp <- function(path) {
 }
 
 startHttpuvApp <- function(appObj, port, host, quiet) {
-  appHandlers <- createAppHandlers(appObj$httpHandler, appObj$serverFuncSource)
+  appHandlers <- createAppHandlers(
+    appObj$httpHandler,
+    appObj$serverFuncSource
+  )
   handlerManager$addHandler(appHandlers$http, "/", tail = TRUE)
   handlerManager$addWSHandler(appHandlers$ws, "/", tail = TRUE)
 
@@ -425,7 +518,9 @@ startHttpuvApp <- function(appObj, port, host, quiet) {
 
   # check for conflicts in each pairwise combinations of resource mappings
   checkResourceConflict <- function(paths) {
-    if (length(paths) < 2) return(NULL)
+    if (length(paths) < 2) {
+      return(NULL)
+    }
     # ensure paths is a named character vector: c(resource_path = local_path)
     paths <- vapply(paths, function(x) if (inherits(x, "staticPath")) x$path else x, character(1))
     # get all possible pairwise combinations of paths
@@ -459,21 +554,24 @@ startHttpuvApp <- function(appObj, port, host, quiet) {
   if (is.numeric(port) || is.integer(port)) {
     if (!quiet) {
       hostString <- host
-      if (httpuv::ipFamily(host) == 6L)
+      if (httpuv::ipFamily(host) == 6L) {
         hostString <- paste0("[", hostString, "]")
-      message('\n', 'Listening on http://', hostString, ':', port)
+      }
+      message("\n", "Listening on http://", hostString, ":", port)
     }
     return(startServer(host, port, httpuvApp))
   } else if (is.character(port)) {
     if (!quiet) {
-      message('\n', 'Listening on domain socket ', port)
+      message("\n", "Listening on domain socket ", port)
     }
-    mask <- attr(port, 'mask')
+    mask <- attr(port, "mask")
     if (is.null(mask)) {
-      stop("`port` is not a valid domain socket (missing `mask` attribute). ",
-           "Note that if you're using the default `host` + `port` ",
-           "configuration (and not domain sockets), then `port` must ",
-           "be numeric, not a string.")
+      stop(
+        "`port` is not a valid domain socket (missing `mask` attribute). ",
+        "Note that if you're using the default `host` + `port` ",
+        "configuration (and not domain sockets), then `port` must ",
+        "be numeric, not a string."
+      )
     }
     return(startPipeServer(port, mask, httpuvApp))
   }
@@ -482,9 +580,8 @@ startHttpuvApp <- function(appObj, port, host, quiet) {
 # Run an application that was created by \code{\link{startHttpuvApp}}. This
 # function should normally be called in a \code{while(TRUE)} loop.
 serviceApp <- function(
-  # rely on lazy evaluation for maximum efficiency
-  timeout = max(1, min(maxTimeout, timerCallbacks$timeToNextEvent(), later::next_op_secs()))
-) {
+    # rely on lazy evaluation for maximum efficiency
+    timeout = max(1, min(maxTimeout, timerCallbacks$timeToNextEvent(), later::next_op_secs()))) {
   timerCallbacks$executeElapsed()
 
   flushReact()
@@ -566,7 +663,7 @@ serviceNonBlocking <- function(handle, generation) {
 }
 
 .shinyServiceMaxDelaySecs <- 0.05
-.shinyServerMinVersion <- '0.3.4'
+.shinyServerMinVersion <- "0.3.4"
 
 # TRUE if `serviceApp` is on the call stack — i.e. we're inside an app tick.
 # Walked on demand so the service hot path stays untouched.
@@ -575,7 +672,7 @@ serviceNonBlocking <- function(handle, generation) {
   calls <- sys.calls()
   for (i in seq_along(calls)) {
     if (identical(calls[[i]][[1]], target) &&
-        identical(sys.function(i), serviceApp)) {
+      identical(sys.function(i), serviceApp)) {
       return(TRUE)
     }
   }
@@ -597,7 +694,7 @@ isRunning <- function() {
 # Returns TRUE if we're running in Shiny Server or other hosting environment,
 # otherwise returns FALSE.
 inShinyServer <- function() {
-  nzchar(Sys.getenv('SHINY_PORT'))
+  nzchar(Sys.getenv("SHINY_PORT"))
 }
 
 # This check was moved out of the main function body because of an issue with

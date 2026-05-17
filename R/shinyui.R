@@ -28,9 +28,9 @@ withMathJax <- function(...) {
   )
 }
 
-renderPage <- function(ui, showcase = 0, testMode = FALSE) {
+renderPage <- function(ui, showcase = 0, testMode = FALSE, outputCapabilityContext = NULL) {
   lang <- getLang(ui)
-
+  message("[strict-output] renderPage called")
   # If the ui is a NOT complete document (created by htmlTemplate()), then do some
   # preprocessing and make sure it's a complete document.
   if (!inherits(ui, "html_document")) {
@@ -97,7 +97,30 @@ renderPage <- function(ui, showcase = 0, testMode = FALSE) {
       )
   }
 
+  if (isTRUE(getOption("shiny.strict_outputs", FALSE))) {
+    if (is.null(outputCapabilityContext)) {
+      message("[strict-output] renderPage has no ctx")
+    } else {
+      message(
+        "[strict-output] renderPage received ctx ",
+        "page_id=", outputCapabilityContext$id,
+        " time=", format(Sys.time(), "%Y-%m-%d %H:%M:%OS3")
+      )
 
+      shiny_deps[[length(shiny_deps) + 1]] <-
+        htmlDependency(
+          "shiny-output-capability-page",
+          get_package_version("shiny"),
+          src = "www/shared",
+          package = "shiny",
+          head = sprintf(
+            "<script>window.__SHINY_OUTPUT_CAPABILITY_PAGE_ID__ = %s;</script>",
+            jsonlite::toJSON(outputCapabilityContext$id, auto_unbox = TRUE)
+          ),
+          all_files = FALSE
+        )
+    }
+  }
   html <- renderDocument(ui, shiny_deps, processDep = createWebDependency)
   enc2utf8(paste(collapse = "\n", html))
 }
@@ -215,7 +238,7 @@ shinyUI <- function(ui) {
 
 uiHttpHandler <- function(ui, uiPattern = "^/$") {
   force(ui)
-
+  message("[strict-output] uiHttpHandler called")
   allowed_methods <- "GET"
   if (is.function(ui)) {
     allowed_methods <- attr(ui, "http_methods_supported", exact = TRUE) %||% allowed_methods
@@ -274,7 +297,26 @@ uiHttpHandler <- function(ui, uiPattern = "^/$") {
     if (inherits(uiValue, "httpResponse")) {
       return(uiValue)
     } else {
-      html <- renderPage(uiValue, showcaseMode, testMode)
+      outputCapabilityContext <- req$.__shiny_output_capability_context__
+
+      if (isTRUE(getOption("shiny.strict_outputs", FALSE))) {
+        if (is.null(outputCapabilityContext)) {
+          message("[strict-output] uiHttpHandler has no output capability context")
+        } else {
+          message(
+            "[strict-output] uiHttpHandler passing output capability context ",
+            "page_id=", outputCapabilityContext$id
+          )
+        }
+      }
+
+      html <- renderPage(
+        uiValue,
+        showcaseMode,
+        testMode,
+        outputCapabilityContext = outputCapabilityContext
+      )
+
       return(httpResponse(200, content = html))
     }
   }

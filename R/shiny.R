@@ -339,6 +339,7 @@ NS <- function(namespace, id = NULL) {
 ns.sep <- "-"
 
 
+
 #' @include utils.R
 ShinySession <- R6Class(
   'ShinySession',
@@ -2237,6 +2238,14 @@ ShinySession <- R6Class(
 
         otel_span_reactive_update_teardown(domain = self)
       }
+    },
+
+    issueOutputCapability = function(outputId, outputType = "unknown"){
+      "dev-output-capability"
+    },
+
+    verifyOutputCapability = function(outputId, outputType, capability) {
+      identical(capability, "dev-output-capability")
     }
   )
 )

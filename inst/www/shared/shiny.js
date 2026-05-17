@@ -6532,6 +6532,14 @@ ${duplicateIdMsg}`;
           socket
         });
         this.onConnected();
+        const outputCapabilityPageId = window.__SHINY_OUTPUT_CAPABILITY_PAGE_ID__;
+        if (outputCapabilityPageId && this.$initialInput !== null) {
+          this.$initialInput[".clientdata_shiny_output_capability_page_id"] = outputCapabilityPageId;
+          console.log(
+            "[strict-output] sending output capability page id",
+            outputCapabilityPageId
+          );
+        }
         socket.send(
           JSON.stringify({
             method: "init",

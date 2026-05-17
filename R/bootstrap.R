@@ -1,12 +1,29 @@
 #' @include utils.R
 NULL
 
-shinyOutputTag <- function(tag, ouptutId, outputType) {
-  tags$attribs$id <- ouptutId
-  tags$attribs[["data-shiny-output-type"]] <- outputType
-  if (isTRUE(getOption("shiny.strict_outputs", FALSE))) {
-    tags$attribs[["data-shiny-output-cap"]] <- "__SHINY_OUTPUT_CAPABILITIES_PLACEHOLDER__"
+issueOutputCapability <- function(outputId, outputType = "unknown") {
+  session <- getDefaultReactiveDomain()
+
+  if (!is.null(session) && is.function(session$issueOutputCapability)) {
+    message("Issuing session capability for output: ", outputId)
+    return(session$issueOutputCapability(outputId, outputType))
   }
+
+  message("Issuing fallback static capability for output: ", outputId)
+  "dev-output-capability"
+}
+
+withOutputCapability <- function(tag, outputId, outputType = "unknown") {
+  tag$attribs[["data-shiny-output-type"]] <- outputType
+
+  if (!isTRUE(getOption("shiny.strict_outputs", FALSE))) {
+    return(tag)
+  }
+
+  tag$attribs[["data-shiny-output-cap"]] <- issueOutputCapability(
+    outputId = outputId,
+    outputType = outputType
+  )
 
   tag
 }
@@ -1330,7 +1347,7 @@ downloadButton <- function(outputId,
       "{.arg enabled} must be {.val TRUE}, {.val FALSE}, or {.val \"auto\"}, not {.obj_type_friendly {enabled}}."
     )
   }
-  shinyOutputTag(
+  withOutputCapability(
     tags$a(
       id = outputId,
       class = "btn btn-default shiny-download-link",
@@ -1345,7 +1362,7 @@ downloadButton <- function(outputId,
       validateIcon(icon),
       label, ...
     ),
-    ouptutId = outputId,
+    outputId = outputId,
     outputType = "download"
   )
 }
